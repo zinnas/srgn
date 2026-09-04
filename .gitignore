@@ -41,3 +41,11 @@ cobertura.xml
 # https://github.com/flamegraph-rs/flamegraph / `perf`
 flamegraph.svg
 perf.data*
+
+# ProgramBench course-competition artifacts
+executable
+.programbench/venv/
+.programbench/gitconfig
+.programbench/home/
+.programbench/tests/
+.programbench/run/
