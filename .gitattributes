@@ -1,0 +1,6 @@
+# Keep shell scripts LF so they run under bash/WSL regardless of core.autocrlf.
+*.sh text eol=lf
+
+# ProgramBench data files are read line-by-line by the harness; CRLF would
+# append a stray \r to each branch name / test id and break URLs and matching.
+.programbench/*.txt text eol=lf
