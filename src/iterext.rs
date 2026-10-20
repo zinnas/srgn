@@ -22,6 +22,9 @@ impl<I: Iterator> Iterator for ParallelZip<I> {
             return None;
         }
 
+        // Collecting into `Option<Vec<_>>` short-circuits: as soon as any subiterator
+        // is exhausted (yields `None`), the whole round yields `None`, so we stop at the
+        // shortest subiterator just like `std::iter::zip`.
         self.0.iter_mut().map(Iterator::next).collect()
     }
 }

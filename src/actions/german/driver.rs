@@ -341,6 +341,26 @@ impl Default for German {
     }
 }
 
+impl German {
+    /// Settles a fully scanned word onto its output form.
+    ///
+    /// The [state machine][`StateMachine`] has gathered the original spelling plus any
+    /// candidate replacements; here we pick the variant to actually emit, honouring the
+    /// `prefer_original` and `naive` configuration. Falls back to the original spelling
+    /// when no valid replacement is found.
+    fn resolve_word(&self, machine: &StateMachine) -> String {
+        let original = machine.current_word().content().to_owned();
+
+        find_valid_replacement(
+            &original,
+            machine.current_word().replacements(),
+            self.prefer_original,
+            self.naive,
+        )
+        .unwrap_or(original)
+    }
+}
+
 impl Action for German {
     fn act(&self, input: &str) -> String {
         const INDICATOR: char = '\0';
@@ -350,40 +370,33 @@ impl Action for German {
 
         // The state machine, much like a missing trailing newline in a file, will
         // misbehave if the very last transition is not an 'external' one (the last word
-        // won't be detected properly).
-        for char in input.chars().chain(std::iter::once(INDICATOR)) {
-            trace!(
-                "Beginning processing of character '{}'",
-                char.escape_debug()
-            );
+        // won't be detected properly). Appending the sentinel guarantees that final
+        // 'external' transition.
+        for ch in input.chars().chain(std::iter::once(INDICATOR)) {
+            trace!("Beginning processing of character '{}'", ch.escape_debug());
 
-            let transition = machine.transition(char);
+            let transition = machine.transition(ch);
 
             trace!("Transition is '{transition:?}'");
 
             match transition {
-                Transition::External => {
-                    output.push(char);
-                }
+                // Outside of any word: pass the character straight through.
+                Transition::External => output.push(ch),
+                // Still building up a word: nothing to emit yet.
                 Transition::Entered | Transition::Internal => { /* no-op */ }
+                // A word just ended: emit its resolved form, then the character that
+                // ended it.
                 Transition::Exited => {
                     debug!("Exited machine: {machine:?}");
 
-                    let original = machine.current_word().content().to_owned();
-                    let word = find_valid_replacement(
-                        &original,
-                        machine.current_word().replacements(),
-                        self.prefer_original,
-                        self.naive,
-                    )
-                    .unwrap_or(original);
+                    let word = self.resolve_word(&machine);
 
                     debug!("Processed word, appending to output: {:?}", &word);
                     output.push_str(&word);
 
                     // Add back the non-word character that caused the exit transition
                     // in the first place.
-                    output.push(char);
+                    output.push(ch);
                 }
             }
         }

@@ -117,6 +117,12 @@ impl Display for SpecialCharacter {
 #[derive(Debug)]
 pub(super) struct Word {
     content: String,
+    /// Running byte length of `content`.
+    ///
+    /// Kept alongside `content` and updated on every [`Word::push`] so the hot path
+    /// does not have to re-measure the string each time its length is needed (it is
+    /// queried once per character while the state machine scans).
+    len: usize,
     replacements: Vec<Replacement>,
 }
 
@@ -130,15 +136,17 @@ impl Word {
     /// Clears the word's contents while retaining any allocated capacities.
     pub(super) fn clear(&mut self) {
         self.content.clear();
+        self.len = 0;
         self.replacements.clear();
     }
 
     pub(super) fn push(&mut self, character: char) {
         self.content.push(character);
+        self.len += 1;
     }
 
-    pub(super) fn len(&self) -> usize {
-        self.content.len()
+    pub(super) const fn len(&self) -> usize {
+        self.len
     }
 
     pub(super) fn add_replacement(&mut self, start: usize, end: usize, content: SpecialCharacter) {
@@ -162,6 +170,7 @@ impl Default for Word {
     fn default() -> Self {
         Self {
             content: String::with_capacity(super::EXPECTABLE_AVERAGE_WORD_LENGTH_BYTES as usize),
+            len: 0,
             replacements: Vec::with_capacity(super::EXPECTABLE_AVERAGE_MATCHES_PER_WORD as usize),
         }
     }
